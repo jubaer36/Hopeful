@@ -1,0 +1,6 @@
+pandas
+joblip
+tqdm
+ffmpeg
+ipykernel
+jupyter
