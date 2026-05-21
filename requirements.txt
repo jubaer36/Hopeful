@@ -1,6 +1,7 @@
 pandas
-joblip
+joblib
 tqdm
 ffmpeg
 ipykernel
 jupyter
+transformers
