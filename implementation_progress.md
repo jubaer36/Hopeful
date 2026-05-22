@@ -61,13 +61,57 @@ Feature dim: 1024
 
 Output format: `dict {utt_id / clip_name → np.array(1024,)}` saved via `torch.save`  
 Tokenization: max_length=512, truncation, padding  
-Batch size: 32
+Batch size: 8
 
-### Audio (Not Started)
-Planned: **WavLM-Large , Hubert Lg**
+### Audio — `extract_audio_iemocap.ipynb` / `extract_audio_meld.ipynb`
 
-### Video (Not Started)
-Planned: **SigLIP 2 + OpenFace 3.0 Action Units**
+Encoder: **WavLM-Large** (default) or **HuBERT-Large** — configurable via `MODEL_NAME`  
+Feature: masked mean-pool over last hidden state frames — excludes padding via `_get_feat_extract_output_lengths`  
+Feature dim: 1024 (both WavLM-Large and HuBERT-Large)  
+Sample rate: 16 kHz mono (auto-resampled if needed)  
+Batch size: 8 (variable-length audio, 12 GB VRAM)  
+
+| Dataset | Notebook | Output | Count | Status |
+|---|---|---|---|---|
+| IEMOCAP | `extract_audio_iemocap.ipynb` | `Processed/IEMOCAP/features/audio_{MODEL_TAG}.pt` | 10,039 | Ready to run |
+| MELD train | `extract_audio_meld.ipynb` | `Processed/MELD/features/audio_{MODEL_TAG}_train.pt` | 9,988 | Ready to run |
+| MELD dev   | `extract_audio_meld.ipynb` | `Processed/MELD/features/audio_{MODEL_TAG}_dev.pt`   | 1,108  | Ready to run |
+| MELD test  | `extract_audio_meld.ipynb` | `Processed/MELD/features/audio_{MODEL_TAG}_test.pt`  | 2,610  | Ready to run |
+
+Output format: `dict {utt_id / clip_name → np.array(1024,)}` saved via `torch.save`  
+Missing audio files skipped automatically (logged in `skipped` list); `dia125_utt3` expected skip in MELD train.
+
+### Video — `extract_video_meld.ipynb` / `extract_video_iemocap.ipynb`
+
+Three independent feature types extracted per utterance; stored as separate `.pt` files for ablation.
+
+**Semantic visual (CLIP ViT-L/14 + SigLIP 2):**
+- Frame sampling: 2 fps, max 60 frames per utterance
+- CLIP: L2-normalised frame embeddings mean-pooled → `(768,)` per utterance
+- SigLIP 2: `pooler_output` mean-pooled → `(1152,)` per utterance
+- Backend: GPU batch inference (batch=32 frames)
+
+**Action Units (OpenFace 3.0 primary / OpenFace 2.0 fallback):**
+- 18 FACS AU intensities mean-pooled over confident frames → `(18,)` per utterance
+- Face confidence threshold: 0.9
+- OF3 uses Python API (`openface-test` pkg); OF2 uses CLI binary (`FeatureExtraction`) → CSV parse
+- Zero vector stored for utterances with no detected face
+- MELD expected coverage: >80% (TV-show footage); IEMOCAP: >95% (speaker-cropped)
+
+| Feature | IEMOCAP output | MELD output (per split) | Status |
+|---|---|---|---|
+| CLIP ViT-L/14 (768,) | `video_clip.pt` | `video_clip_{split}.pt` | Notebooks ready |
+| SigLIP 2 (1152,) | `video_siglip2.pt` | `video_siglip2_{split}.pt` | Notebooks ready |
+| OpenFace 3.0 AU (18,) | `video_openface_au.pt` | `video_openface_au_{split}.pt` | Notebooks ready |
+| OpenFace 2.0 AU (18,) fallback | `video_openface2_au.pt` | `video_openface2_au_{split}.pt` | Notebooks ready |
+
+Fallback notebooks: `extract_video_au_openface2_meld.ipynb` / `extract_video_au_openface2_iemocap.ipynb`
+
+**Install (once):**
+```bash
+conda run -n hopeful pip install git+https://github.com/openai/CLIP.git
+conda run -n hopeful pip install openface-test && conda run -n hopeful openface download
+```
 
 ---
 
@@ -81,3 +125,6 @@ Target architecture: SC-VAH / PHASE (see `Possible Plans/`)
 
 Conda env: `hopeful`
 Key deps: `ffmpeg`, `pandas`, `joblib`, `tqdm`, `ipykernel`
+
+## GPU
+RTX 3060 12gb VRAM
