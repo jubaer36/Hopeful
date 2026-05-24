@@ -45,7 +45,7 @@ cropping to the speaking side using filename convention (index 5 of dialog name 
 
 ---
 
-## Stage 2: Feature Extraction (In Progress)
+## Stage 2: Feature Extraction (Text ✓ · Audio ✓ · Video: IEMOCAP ✓ / MELD pending)
 
 ### Text — `extract_text_iemocap.ipynb` / `extract_text_meld.ipynb`
 
@@ -83,29 +83,51 @@ Missing audio files skipped automatically (logged in `skipped` list); `dia125_ut
 
 ### Video — `extract_video_meld.ipynb` / `extract_video_iemocap.ipynb`
 
-Three independent feature types extracted per utterance; stored as separate `.pt` files for ablation.
+Three feature types extracted per utterance via **unified face-crop pipeline** — RetinaFace runs once per frame; the same crop feeds all three models (no redundant detection).
 
-**Semantic visual (CLIP ViT-L/14 + SigLIP 2):**
-- Frame sampling: 2 fps, max 60 frames per utterance
-- CLIP: L2-normalised frame embeddings mean-pooled → `(768,)` per utterance
-- SigLIP 2: `pooler_output` mean-pooled → `(1152,)` per utterance
-- Backend: GPU batch inference (batch=32 frames)
+**Pipeline per utterance:**
+1. Sample frames at 2 fps, max 60 frames
+2. Each frame saved to temp `.jpg` → RetinaFace (`vis_threshold=0.5`) → BGR face crop
+3. Valid crops split into temporal segments: **beginning / middle / end** (up to 3 crops each)
+4. All three models encode the same crops; mean-pool per segment → stack → `(3, dim)`
 
-**Action Units (OpenFace 3.0 primary / OpenFace 2.0 fallback):**
-- 18 FACS AU intensities mean-pooled over confident frames → `(18,)` per utterance
-- Face confidence threshold: 0.9
-- OF3 uses Python API (`openface-test` pkg); OF2 uses CLI binary (`FeatureExtraction`) → CSV parse
-- Zero vector stored for utterances with no detected face
-- MELD expected coverage: >80% (TV-show footage); IEMOCAP: >95% (speaker-cropped)
+**Why temporal `(3, dim)` not flat `(dim,)`?**  
+Captures expression arc (onset → apex → offset). Single mean-pool discards temporal ordering. Consistent with audio (WavLM first/mid/last) and text (CLS/token/SEP regions).
 
-| Feature | IEMOCAP output | MELD output (per split) | Status |
+**Feature types:**
+
+| Feature | Model | Per-segment dim | Output shape | Notes |
+|---|---|---|---|---|
+| CLIP | ViT-L/14 | 768 | `(3, 768)` | L2-normalised per crop before mean-pool |
+| SigLIP 2 | so400m-patch14-384 | 1152 | `(3, 1152)` | Raw `pooler_output` — no normalisation (sigmoid loss) |
+| OpenFace AU | OF3 MTL backbone | 8 | `(3, 8)` | 8 AU intensities per crop, mean-pool per segment |
+
+**OpenFace 3.0 (`openface-test 0.1.26`):**  
+Python MTL model (EfficientNet-B0 backbone), `au_numbers=8` hardcoded.  
+Outputs 8 AU intensity scores ≈ [0, 1] via GNN head (cosine-similarity output).  
+Zero vector stored for utterances with no detected face in any frame.
+
+**Checkpointing:** saves `*_ckpt.pt` every 500 utterances → safe to stop/resume without restarting. Checkpoint files deleted on successful split completion.
+
+| Feature | IEMOCAP output | MELD output (per split) |
+|---|---|---|
+| CLIP `(3, 768)` | `video_clip_temporal.pt` | `video_clip_temporal_{split}.pt` |
+| SigLIP 2 `(3, 1152)` | `video_siglip2_temporal.pt` | `video_siglip2_temporal_{split}.pt` |
+| OpenFace AU `(3, 8)` | `video_openface_au.pt` | `video_openface_au_{split}.pt` |
+
+**Status:**
+
+| Dataset | Count | Face coverage | Status |
 |---|---|---|---|
-| CLIP ViT-L/14 (768,) | `video_clip.pt` | `video_clip_{split}.pt` | Notebooks ready |
-| SigLIP 2 (1152,) | `video_siglip2.pt` | `video_siglip2_{split}.pt` | Notebooks ready |
-| OpenFace 3.0 AU (18,) | `video_openface_au.pt` | `video_openface_au_{split}.pt` | Notebooks ready |
-| OpenFace 2.0 AU (18,) fallback | `video_openface2_au.pt` | `video_openface2_au_{split}.pt` | Notebooks ready |
+| IEMOCAP | 10,039 / 10,039 | 9,960 / 10,039 (99.2%) | ✓ Complete |
+| MELD train | — / 9,989 | — | Notebooks ready — extraction pending |
+| MELD dev | — / 1,109 | — | Notebooks ready — extraction pending |
+| MELD test | — / 2,610 | — | Notebooks ready — extraction pending |
 
-Fallback notebooks: `extract_video_au_openface2_meld.ipynb` / `extract_video_au_openface2_iemocap.ipynb`
+MELD expected face coverage: ~99% (TV-show footage, group shots, profile views).
+
+**Verification notebooks:** `inspect_visual_meld.ipynb` / `inspect_visual_iemocap.ipynb`  
+Walk through every step (frame sampling → detection → crops → segmentation → CLIP → SigLIP2 → AU) and verify computed features match saved `.pt` files.
 
 **Install (once):**
 ```bash
