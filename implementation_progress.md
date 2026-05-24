@@ -137,9 +137,52 @@ conda run -n hopeful pip install openface-test && conda run -n hopeful openface 
 
 ---
 
-## Stage 3: Graph Construction + Model (Not Started)
+## Stage 3: Graph Construction + Model (In Progress — notebooks ready, training pending)
 
-Target architecture: SC-VAH / PHASE (see `Possible Plans/`)
+Architecture: **Plan A — Temporal Heterogeneous Hypergraph** (see `Possible Plans/stage3_design.md`)
+
+### Notebooks
+
+| Notebook | Dataset | Status |
+|---|---|---|
+| `stage3_plan_a_iemocap.ipynb` | IEMOCAP | Ready to run (syntax verified, kernel=hopeful) |
+| `stage3_plan_a_meld.ipynb` | MELD | Ready to run (syntax verified, kernel=hopeful) |
+
+### Architecture summary
+
+- **5 nodes/utterance**: text (RoBERTa-1024), audio (WavLM-1024), vis_begin/mid/end (AU⊕SigLIP2 = 1160)
+- **4 hyperedge types**: Multimodal-utterance (type 0), Visual-arc / expression arc (type 1), Contextual ×5 (type 2), Speaker (type 3)
+- **Propagation**: two-level node→edge / edge→node attention, K=4 layers alternating inter/intra-modal schedule
+- **Loss**: CB-Focal (Cui et al. CVPR 2019) + λ·BCL (Zhu et al. CVPR 2022), λ=0.5
+- **HIDDEN**: 256 (IEMOCAP), 384 (MELD)
+- **OOM guard**: `HypergraphConvLayer` chunks hedge attention over 64 nodes at a time (~110 MB peak)
+
+### Key implementation details
+
+- `build_incidence_matrix(N, speakers)` → `(5N, E)` H matrix + `edge_types (E,)`; pre-built per dialog, cached
+- `PlanAModel.forward(text, audio, vis, vis_absent, H_mat, edge_types, return_feats)` — H_mat passed pre-built
+- Visual absent: `AU.sum()==0 AND SigLIP2.sum()==0` → replaced with learned `visual_absent_embed (3, d)`
+- Missing MELD audio: `dia125_utt3` (train), `dia110_utt7` (dev) → zero-filled 1024-dim vector
+
+### Checkpointing / resume
+
+- **IEMOCAP**: per-epoch `resume_fold{N}.pt` saved each epoch; deleted on clean fold completion. `fold{N}_best_model.pt` skipped if already present → full crash recovery across all 5 folds.
+- **MELD**: per-epoch `resume_checkpoint.pt`; skips training entirely if `best_model.pt` exists.
+- All checkpoints and results → `Dataset/Processed/{IEMOCAP,MELD}/stage3_results/`
+
+### Evaluation protocol
+
+| Dataset | Protocol | Classes | Utterances |
+|---|---|---|---|
+| IEMOCAP | 5-fold LOSO (leave-one-session-out) | 6 (ang/exc/fru/hap/neu/sad) | ~7,380 |
+| MELD | fixed train/dev/test splits | 7 (neutral/joy/surprise/anger/sadness/disgust/fear) | ~13,708 |
+
+### Targets
+
+| Dataset | Baseline (MM-DFN) | Aim | Current ceiling |
+|---|---|---|---|
+| IEMOCAP WF1 | ~58.18 | ≥63–68 | ~75.47 (HRG-SSA IJCAI-25) |
+| MELD WF1 | ~58.17 | ≥60–64 | ~65+ |
 
 ---
 
