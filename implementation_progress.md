@@ -137,7 +137,7 @@ conda run -n hopeful pip install openface-test && conda run -n hopeful openface 
 
 ---
 
-## Stage 3: Graph Construction + Model (In Progress — notebooks ready, training pending)
+## Stage 3: Graph Construction + Model (Training Complete — IEMOCAP ✓ / MELD retraining)
 
 Architecture: **Plan A — Temporal Heterogeneous Hypergraph** (see `Possible Plans/stage3_design.md`)
 
@@ -145,17 +145,70 @@ Architecture: **Plan A — Temporal Heterogeneous Hypergraph** (see `Possible Pl
 
 | Notebook | Dataset | Status |
 |---|---|---|
-| `stage3_plan_a_iemocap.ipynb` | IEMOCAP | Ready to run (syntax verified, kernel=hopeful) |
-| `stage3_plan_a_meld.ipynb` | MELD | Ready to run (syntax verified, kernel=hopeful) |
+| `stage3_plan_a_iemocap.ipynb` | IEMOCAP | ✓ 5-fold LOSO complete |
+| `stage3_plan_a_meld.ipynb` | MELD | Retraining (fixed loss settings) |
+| `ablation_iemocap.ipynb` | IEMOCAP | Ablation complete — informs final config |
 
 ### Architecture summary
 
 - **5 nodes/utterance**: text (RoBERTa-1024), audio (WavLM-1024), vis_begin/mid/end (AU⊕SigLIP2 = 1160)
 - **4 hyperedge types**: Multimodal-utterance (type 0), Visual-arc / expression arc (type 1), Contextual ×5 (type 2), Speaker (type 3)
-- **Propagation**: two-level node→edge / edge→node attention, K=4 layers alternating inter/intra-modal schedule
-- **Loss**: CB-Focal (Cui et al. CVPR 2019) + λ·BCL (Zhu et al. CVPR 2022), λ=0.5
-- **HIDDEN**: 256 (IEMOCAP), 384 (MELD)
+- **Propagation**: two-level node→edge / edge→node attention, alternating inter/intra-modal schedule
+- **Loss**: CB-Focal (Cui et al. CVPR 2019) + λ·BCL (Zhu et al. CVPR 2022)
 - **OOM guard**: `HypergraphConvLayer` chunks hedge attention over 64 nodes at a time (~110 MB peak)
+
+### Final confirmed configs (after ablation)
+
+| Setting | IEMOCAP | MELD | Reason |
+|---|---|---|---|
+| HIDDEN | 256 | 256 | sufficient capacity |
+| K_LAYERS | 2 | 2 | K=4 slightly better but negligible for IEMOCAP; K=2 suitable for short MELD dialogs |
+| DROPOUT | 0.3 | 0.3 | 0.5 was too aggressive → slow convergence |
+| WEIGHT_DECAY | 1e-4 | 5e-4 | MELD needs stronger regularization |
+| BETA_CB | 0.9999 | 0.999 | MELD: beta=0.9999 gives 13:1 neutral:fear weight ratio → kills neutral learning; 0.999 → 4:1 ratio |
+| LAMBDA_BCL | 0.5 | 0.1 | MELD dialogs (median N≈10) give noisy BCL gradients; reduce influence |
+| PATIENCE | 12 | 20 | MELD converges ~3x slower |
+| EPOCHS | 60 | 100 | MELD needs more epochs |
+
+### Ablation findings (IEMOCAP, 2-fold, Session1+Session5)
+
+| Config | S1 WF1 | S5 WF1 | Mean | Gap |
+|---|---|---|---|---|
+| A_baseline (K=2, spk edges, BCL) | 0.5785 | 0.6485 | 0.6135 | 0.1122 |
+| B_no_speaker | 0.5667 | 0.6353 | 0.6010 | 0.2066 |
+| C_bcl_detach | 0.5730 | 0.6430 | 0.6080 | 0.1199 |
+| D_no_spk+BCL | 0.5748 | 0.6309 | 0.6029 | 0.1465 |
+| E_all changes | 0.5743 | 0.6377 | 0.6060 | 0.1513 |
+
+Key conclusions: speaker edges help (removing increases gap 0.11→0.21); BCL detach/intra-first neutral; val loss rise is 89% BCL inflation (not classification degradation) → early stop on WF1 is correct.
+
+### IEMOCAP Results (5-fold LOSO, final)
+
+| Session | WF1 | UAF1 | ACC |
+|---|---|---|---|
+| Session1 | 0.5788 | 0.5871 | 0.5868 |
+| Session2 | 0.5921 | 0.5794 | 0.5846 |
+| Session3 | 0.6205 | 0.6127 | 0.6275 |
+| Session4 | 0.6358 | 0.6072 | 0.6362 |
+| Session5 | 0.6556 | 0.6390 | 0.6603 |
+| **Mean±std** | **0.6165±0.0281** | **0.6051±0.0210** | **0.6191±0.0293** |
+
+Beats MM-DFN baseline (WF1≈58.18). Saved to `Dataset/Processed/IEMOCAP/stage3_results/`.
+
+### MELD Results (retrained with fixed loss settings)
+
+| Metric | Broken run | Fixed run | MM-DFN baseline |
+|---|---|---|---|
+| Test WF1 | 0.3610 | **0.4631** | 0.5817 |
+| Test UAF1 | 0.2710 | 0.2960 | — |
+| Test ACC | 0.3460 | 0.4642 | — |
+| Dev best WF1 | 0.3714 | 0.4751 | — |
+
+Per-class F1 (fixed run): neutral=0.632, joy=0.320, surprise=0.327, anger=0.383, sadness=0.257, disgust=0.067, fear=0.087  
+Root cause confirmed: neutral F1 jumped 0.40→0.63 after fixing CB-Focal beta (0.9999→0.999).
+
+Still below MM-DFN baseline (-0.12 WF1). Fear/disgust remain near zero (267/269 train samples).  
+Possible next step: increase HIDDEN=384, K_LAYERS=4 to push toward baseline.
 
 ### Key implementation details
 
