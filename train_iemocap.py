@@ -19,6 +19,8 @@ if __name__ == "__main__":
     p.add_argument("--lam",        type=float, default=0.1)
     p.add_argument("--seed",       type=int,   default=42)
     p.add_argument("--device",     default="cuda")
+    p.add_argument("--max_folds",  type=int,   default=5,
+                   help="Run only first N folds (1 for quick ablations)")
     # Ablation
     p.add_argument("--no_igm",            action="store_true")
     p.add_argument("--no_hm",             action="store_true")
@@ -26,7 +28,9 @@ if __name__ == "__main__":
     p.add_argument("--no_implicit_edge",  action="store_true")
     p.add_argument("--no_edge_weights",   action="store_true")
     p.add_argument("--no_cross_modal",    action="store_true")
-    p.add_argument("--no_cbfc",           action="store_true")
+    p.add_argument("--cbfc",              action="store_true",
+                   help="Enable CBFC loss (off by default — ablations show it hurts generalisation)")
+    p.add_argument("--no_cbfc",           action="store_true", help="Explicit off (default)")
     p.add_argument("--no_dual_cl",        action="store_true")
     p.add_argument("--no_class_balanced", action="store_true")
     args = p.parse_args()
@@ -54,8 +58,9 @@ if __name__ == "__main__":
         use_implicit_edge      = not args.no_implicit_edge,
         use_edge_weights       = not args.no_edge_weights,
         use_cross_modal_attn   = not args.no_cross_modal,
-        use_cbfc               = not args.no_cbfc,
+        use_cbfc               = args.cbfc and not args.no_cbfc,
         use_dual_cl            = not args.no_dual_cl,
         use_class_balanced     = not args.no_class_balanced,
+        iemocap_max_folds      = args.max_folds,
     )
     main(cfg)

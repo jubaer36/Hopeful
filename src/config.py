@@ -8,7 +8,7 @@ class HyFINConfig:
     data_root: str = "Dataset/Processed"
 
     # ── Model dims ──────────────────────────────────────────────────────────
-    # 256 for IEMOCAP (~5.5K train utterances); 512 for MELD (~10K)
+    # 256 for both datasets — ablations show CBFC removal + d_h=256 gives best generalisation
     d_h: int = 256
 
     # ── IGM ─────────────────────────────────────────────────────────────────
@@ -56,6 +56,7 @@ class HyFINConfig:
         default_factory=lambda: ["Session1", "Session2", "Session3", "Session4"]
     )
     iemocap_k_folds: int = 5
+    iemocap_max_folds: int = 5   # run only first N of the k folds (1 = fold 0 only)
     iemocap_emotions: List[str] = field(
         default_factory=lambda: ["hap", "sad", "neu", "ang", "exc", "fru"]
     )
@@ -70,7 +71,7 @@ class HyFINConfig:
     use_implicit_edge: bool = True    # False → skip HRG-SSA detector
     use_edge_weights: bool = True     # False → uniform Ĥ (no γ_e)
     use_cross_modal_attn: bool = True # False → plain concat-FC
-    use_cbfc: bool = True             # False → μ = 0
+    use_cbfc: bool = False            # ablations show CBFC drives dev_loss divergence; off by default
     use_dual_cl: bool = True          # False → λ = 0
     use_class_balanced: bool = True   # False → uniform class weights
 

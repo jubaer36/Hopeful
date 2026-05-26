@@ -133,6 +133,8 @@ def main(cfg: HyFINConfig = None):
     for fold_i, (train_convs, dev_convs) in enumerate(
         make_kfold_splits(trainval_ds.conversations, cfg.iemocap_k_folds, cfg.seed)
     ):
+        if fold_i >= cfg.iemocap_max_folds:
+            break
         te = _train_fold(fold_i, train_convs, dev_convs, test_ds, cfg, device, logger)
         fold_results.append(te)
 

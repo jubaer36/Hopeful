@@ -1,0 +1,7 @@
+Run directory: results/iemocap_20260526_220450
+Loading IEMOCAP features…
+  trainval: 120 convs  |  test: 31 convs
+  trainable parameters: 13,533,975
+
+  Fold 0  train=96 dev=24 convs
+    Ep   TrLoss   DevWF1    TeWF1       CE       FC       CL

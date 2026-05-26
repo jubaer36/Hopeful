@@ -1,0 +1,70 @@
+{
+  "dataset": "iemocap",
+  "data_root": "Dataset/Processed",
+  "d_h": 512,
+  "igm_windows": [
+    [
+      10,
+      9
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "n_inc": 3,
+  "n_hyp": 2,
+  "k_freq": 4,
+  "dropout": 0.3,
+  "beta": 0.999,
+  "mu": 0.8,
+  "lam": 0.1,
+  "tau_cl": 0.5,
+  "gamma_cbfc": 1.5,
+  "dual_cl_drop": 0.1,
+  "dual_cl_warmup": 5,
+  "lr": 0.0004,
+  "weight_decay": 0.0001,
+  "grad_clip": 1.0,
+  "epochs": 40,
+  "batch_size": 12,
+  "seed": 42,
+  "text_dim": 1024,
+  "audio_dim": 1024,
+  "siglip2_dim": 1152,
+  "au_dim": 8,
+  "iemocap_test_sessions": [
+    "Session5"
+  ],
+  "iemocap_trainval_sessions": [
+    "Session1",
+    "Session2",
+    "Session3",
+    "Session4"
+  ],
+  "iemocap_k_folds": 5,
+  "iemocap_max_folds": 5,
+  "iemocap_emotions": [
+    "hap",
+    "sad",
+    "neu",
+    "ang",
+    "exc",
+    "fru"
+  ],
+  "meld_rare_threshold": 5,
+  "use_igm": true,
+  "use_hm": true,
+  "use_mfm": true,
+  "use_implicit_edge": true,
+  "use_edge_weights": true,
+  "use_cross_modal_attn": true,
+  "use_cbfc": false,
+  "use_dual_cl": true,
+  "use_class_balanced": true,
+  "device": "cuda"
+}

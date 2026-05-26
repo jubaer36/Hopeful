@@ -1,0 +1,15 @@
+========================================
+A: baseline  d_h=512 dropout=0.3 cbfc=ON   (reference)
+========================================
+/tmp/tmp2xqiwj_9: line 3: 70580 Killed                  python train_iemocap.py --max_folds 1 --epochs 40 --batch_size 12 --d_h 512 --dropout 0.3
+
+ERROR conda.cli.main_run:execute(127): `conda run python train_iemocap.py --max_folds 1 --epochs 40 --batch_size 12 --d_h 512 --dropout 0.3` failed. (See above for error)
+Run directory: results/iemocap_20260526_220334
+Loading IEMOCAP features…
+  trainval: 120 convs  |  test: 31 convs
+  trainable parameters: 13,533,975
+
+  Fold 0  train=96 dev=24 convs
+    Ep   TrLoss   DevWF1    TeWF1       CE       FC       CL
+     0   3.1959   0.0227   0.0574   2.5969   0.6336   4.6051
+
