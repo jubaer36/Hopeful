@@ -137,9 +137,77 @@ conda run -n hopeful pip install openface-test && conda run -n hopeful openface 
 
 ---
 
-## Stage 3: Graph Construction + Model (Not Started)
+## Stage 3: Graph Construction + Model (In Progress — arch2 branch)
 
-Target architecture: SC-VAH / PHASE (see `Possible Plans/`)
+Two architectures implemented as Python packages under `src/` (git branches).
+
+### Branch `arch` — MERC / arch1 (Complete, has results)
+
+Path A: dynamic hypergraph + cross-modal gated attention  
+Path B: Chebyshev spectral filtering  
+Hidden dim: d=64 | Loss: AnnealedFocalLoss (anneals focal γ over epochs 5–10)  
+Checkpoints: `checkpoints/iemocap_fold{0-4}.pt`, `checkpoints/meld_best.pt`  
+Results: `results/`
+
+### Branch `arch2` — HyFIN-Net (Implemented 2026-05-26, training in progress)
+
+Plan: `Possible Plans/arch2-shahi.md`  
+Hidden dim: d_h=**256** (IEMOCAP) | **3.8M params**
+
+**Architecture (A→B→C→D→E→F):**
+
+| Block | Module | Key |
+|---|---|---|
+| A | `src/model/encoder.py` | Text: 1-layer Transformer; Audio: linear+ReLU; Visual: SigLIP2+AU dual-stream; Speaker: add |
+| B | `src/model/igm.py` | IGM: n-branch heterogeneous k-GNN (angular-weighted, causal implicit edges); HM: M³Net hypergraph with γ_e(v) edge-dependent node weights |
+| C | `src/model/mfm.py` | Global graph, per-edge self-gated low/high-pass (FAGCN-style, K layers) |
+| D | concat | `[p^τ ∥ q^τ ∥ f̄^τ]` per modality → 3·d_h |
+| E | `src/model/hyfin.py` | Per-modality projection (3d_h→d_h) → text-anchored cross-modal attention → fuse |
+| F | `src/model/hyfin.py` | Linear → softmax |
+
+**Loss:** CBCE + μ·CBFC + λ·DualCL with 5-epoch λ warmup
+
+**Hyperparams:**
+
+| | IEMOCAP | MELD |
+|---|---|---|
+| d_h | 256 | 512 |
+| IGM windows | `[(10,9),(5,3),(3,2)]` | `[(11,11),(7,4),(6,4)]` |
+| HM layers | 2 | 4 |
+| Freq layers K | 4 | 3 |
+| Dropout | 0.3 | 0.4 |
+| μ (CBFC) | 0.8 | 0.8 |
+| λ (DualCL) | 0.1 | 0.1 |
+| DualCL warmup | 5 epochs | 5 epochs |
+
+**Entry points:**
+```bash
+conda run -n hopeful python train_iemocap.py   # 5-fold CV, Session-5 test
+conda run -n hopeful python train_meld.py      # train/dev/test splits
+```
+
+**Ablation flags:** `--no_igm`, `--no_hm`, `--no_mfm`, `--no_implicit_edge`, `--no_edge_weights`, `--no_cross_modal`, `--no_cbfc`, `--no_dual_cl`, `--no_class_balanced`
+
+**Feature files expected** (from Stage 2):
+- IEMOCAP: `text_roberta_large.pt`, `audio_microsoft_wavlm_large.pt`, `video_siglip2_temporal.pt`, `video_openface_au.pt`
+- MELD: same pattern with `_{split}.pt` suffix
+
+**Fixes applied 2026-05-26:**
+- `CrossModalFusion`: added per-modality projections 3d_h→d_h before cross-attn; removed 7M-param W_V/W_z bottleneck (12.2M → 1.8M in fusion block)
+- `ImplicitEdgeDetector`: vectorised O(L²) Python loop → 3 matrix ops; ~100× speedup
+- `_build_graph`: vectorised Python loops → tensor indexing
+- `d_h` default: 512 → 256 for IEMOCAP (19M → 3.8M total)
+- DualCL λ warmup (0 → 0.1 over 5 epochs) to stabilise early CE learning
+
+**Param count history:**
+
+| Config | Params |
+|---|---|
+| Original d_h=512 | 19.0M |
+| d_h=512 + fixed fusion | 13.5M |
+| **d_h=256 + fixed fusion** | **3.8M** |
+
+**Expected performance:** IEMOCAP WF1 75.8–77.0, MELD WF1 67.3–68.5 (see plan §9)
 
 ---
 

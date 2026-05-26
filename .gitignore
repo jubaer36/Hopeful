@@ -1,2 +1,4 @@
 Dataset/*
 .claude/*
+__pycache__/*
+checkpoints/*
