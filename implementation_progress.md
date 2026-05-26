@@ -137,16 +137,111 @@ conda run -n hopeful pip install openface-test && conda run -n hopeful openface 
 
 ---
 
-## Stage 3: Graph Construction + Model (Not Started)
+## Stage 3: Model Implementation (Complete)
 
-Target architecture: SC-VAH / PHASE (see `Possible Plans/`)
+Architecture: **MERC** — Multimodal Emotion Recognition in Conversation  
+Spec: `Possible Plans/MERC_Architecture_Plan.md`  
+Code: `src/`
+
+### Source layout
+
+```
+src/
+  config.py              MERCConfig dataclass — all hyperparameters
+  data/
+    iemocap.py           IEMOCAPDataset, ConvSubset, make_kfold_splits
+    meld.py              MELDDataset, _build_speaker_map
+  model/
+    encoder.py           Stage 1 — TextEncoder, AudioEncoder, VisualEncoder
+    path_a.py            Stage 3A — per-modality dynamic hypergraph + cross-modal attention
+    path_b.py            Stage 3B — Chebyshev spectral filtering (M3Net-style)
+    merc.py              Stages 2,4,5,6 — full MERC model
+  loss.py                Annealed class-balanced focal cross-entropy
+  metrics.py             WA, WF1 (weighted F1), UF1 (macro F1), per-class F1
+  logger.py              ResultLogger — timestamped run dirs, CSV history, JSON results, run.log
+  train.py               train_epoch / evaluate loops + list_collate
+  visualize.py           Loss/metric curves + summary plots (matplotlib, Agg backend)
+  run_iemocap.py         IEMOCAP k-fold training loop
+  run_meld.py            MELD single-run training loop
+  test.py                Checkpoint evaluation (auto-discovers fold checkpoints)
+```
+
+### Entry points (run from project root)
+
+```bash
+python train_iemocap.py [--epochs N] [--batch_size N] [--lr F] [--k_folds N] [--seed N]
+python train_meld.py    [--epochs N] [--batch_size N] [--lr F] [--seed N]
+python test_merc.py     --dataset iemocap|meld [--ckpt path] [--data_root path]
+```
+
+### Model architecture summary
+
+| Stage | Component | Output |
+|---|---|---|
+| 1 | Text: LN → Linear(1024→128) | (N, 128) |
+| 1 | Audio: LN → Linear(1024→128) | (N, 128) |
+| 1 | Visual: SigLIP2 + AU FACS dual-stream, 3-segment temporal aggregation | (N, 128) |
+| 2 | Speaker embedding (64d) concat + projection, sinusoidal pos-enc | (N, 128) ×3 |
+| 3A | Per-modality dynamic hypergraph (top-τ sparsemax, speaker hyperedges, 2-layer HGNN) + 5-direction gated cross-modal attention | (N, 128) ×3 |
+| 3B | Stop-grad window graph, Chebyshev filters K=2, K_f=4 adaptive spectral | (N, 128) ×3 |
+| 4 | Modality-specific gated path fusion (separate W_g per modality) | (N, 128) ×3 |
+| 5 | Concat → LN → Linear(384→128) → GELU → Dropout → Linear(128→128) | (N, 128) |
+| 6 | LN → Dropout → Linear(128→C) | (N, C) |
+
+**Trainable parameters:** ~1.01M (IEMOCAP, C=6) / ~1.02M (MELD, C=7)  
+**Pretrained encoders:** RoBERTa-Large, WavLM-Large, SigLIP2 — permanently frozen
+
+### Dataset split protocol
+
+**IEMOCAP:**
+- Test: Session 5 (fixed, 31 conversations)
+- Trainval: Sessions 1–4 (120 conversations)
+- k-fold CV (default k=5): each fold holds 24 conversations as dev; checkpoint selected by dev WF1
+- Final report: mean ± std of WA / WF1 / UF1 across k folds
+
+**MELD:**
+- Train / Dev / Test: official splits
+- Dev used for checkpoint selection (best dev WF1)
+- Test evaluated at best-dev checkpoint
+- Rare speakers (<5 train utterances) share background embedding
+
+### Loss
+
+Annealed class-balanced focal cross-entropy:
+- Epochs 0–4: standard CE, uniform weights
+- Epochs 5–9: linear ramp → γ=2, inverse-frequency class weights
+- Epochs 10+: full focal CE with class balancing
+
+### Results logging
+
+Each run writes a timestamped directory:
+```
+results/{dataset}_{YYYYMMDD_HHMMSS}/
+  config.json               full hyperparameter snapshot
+  fold{i}_history.csv       epoch-level metrics per fold (IEMOCAP)
+  history.csv               epoch-level metrics (MELD)
+  results.json              per-fold + aggregate WA/WF1/UF1 + per-class F1
+  run.log                   full console output
+  plots/
+    iemocap_fold{i}_curves.png   loss + WF1 curves per fold
+    iemocap_kfold_summary.png    cross-fold summary (4-panel)
+    meld_curves.png
+    meld_summary.png
+```
+
+### Smoke test results (1-epoch)
+
+| Dataset | Params | Forward pass | Train step |
+|---|---|---|---|
+| IEMOCAP | 1,009,463 | ✓ | ✓ |
+| MELD    | 1,016,493 | ✓ | ✓ |
 
 ---
 
 ## Environment
 
 Conda env: `hopeful`
-Key deps: `ffmpeg`, `pandas`, `joblib`, `tqdm`, `ipykernel`
+Key deps: `ffmpeg`, `pandas`, `joblib`, `tqdm`, `ipykernel`, `matplotlib`, `scikit-learn`
 
 ## GPU
-RTX 3060 12gb VRAM
+RTX 3060 12 GB VRAM
