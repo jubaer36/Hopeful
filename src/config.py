@@ -7,12 +7,18 @@ class MERCConfig:
     dataset: str = "iemocap"
     data_root: str = "Dataset/Processed"
 
-    d: int = 128
-    d_spk: int = 64
+    d: int = 64
+    d_spk: int = 32
     window_size: int = 6
     k_poly: int = 2
     k_freq: int = 4
     dropout: float = 0.3
+
+    # Ablation flags
+    use_path_a: bool = True
+    use_path_b: bool = True
+    use_cross_modal_attn: bool = True
+    use_speaker_emb: bool = True
 
     text_dim: int = 1024
     audio_dim: int = 1024

@@ -33,6 +33,8 @@ from .visualize    import plot_fold_curves, plot_kfold_summary
 # ---------------------------------------------------------------------------
 
 def _init_speaker_embeddings(model: MERC, train_subset: ConvSubset, device: torch.device):
+    if not hasattr(model.spk_pos, 'speaker_emb'):
+        return  # speaker embedding disabled
     spk_means = train_subset.get_speaker_text_means()
     emb_dim   = model.spk_pos.speaker_emb.embedding_dim
     text_dim  = next(iter(spk_means.values())).shape[0]
@@ -183,7 +185,7 @@ def main(cfg: MERCConfig = None):
     plot_kfold_summary(fold_results, cfg.iemocap_emotions,
                        save_dir=os.path.join(logger.run_dir, "plots"))
     logger.close()
-    return fold_results
+    return {"fold_results": fold_results, "run_dir": logger.run_dir}
 
 
 if __name__ == "__main__":

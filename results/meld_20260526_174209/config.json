@@ -1,0 +1,47 @@
+{
+  "dataset": "meld",
+  "data_root": "Dataset/Processed",
+  "d": 64,
+  "d_spk": 32,
+  "window_size": 6,
+  "k_poly": 2,
+  "k_freq": 4,
+  "dropout": 0.3,
+  "use_path_a": true,
+  "use_path_b": true,
+  "use_cross_modal_attn": false,
+  "use_speaker_emb": true,
+  "text_dim": 1024,
+  "audio_dim": 1024,
+  "siglip2_dim": 1152,
+  "au_dim": 8,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "grad_clip": 1.0,
+  "epochs": 25,
+  "batch_size": 8,
+  "seed": 42,
+  "focal_start": 5,
+  "focal_end": 10,
+  "focal_gamma": 2.0,
+  "iemocap_test_sessions": [
+    "Session5"
+  ],
+  "iemocap_trainval_sessions": [
+    "Session1",
+    "Session2",
+    "Session3",
+    "Session4"
+  ],
+  "iemocap_k_folds": 5,
+  "iemocap_emotions": [
+    "hap",
+    "sad",
+    "neu",
+    "ang",
+    "exc",
+    "fru"
+  ],
+  "meld_rare_threshold": 5,
+  "device": "cuda"
+}

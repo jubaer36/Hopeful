@@ -1,0 +1,2 @@
+epoch,train_loss,train_wf1,dev_loss,dev_wf1,dev_uf1,test_loss,test_wf1,test_uf1
+0,1.893345,0.202709,1.758991,0.184085,0.162669,1.837555,0.136331,0.122412

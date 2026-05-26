@@ -1,0 +1,48 @@
+Run directory: results/iemocap_20260526_171629
+Loading IEMOCAP features…
+  trainval: 120 conversations  |  test (Session5): 31
+  trainable parameters: 339,207
+
+  Fold 0  train=80 dev=40 convs
+    Ep   TrLoss   DevLoss   DevWF1   DevUF1    TeWF1
+     0   1.8725    1.7259   0.1472   0.1410   0.1056
+    10   0.0772    0.1055   0.4952   0.4883   0.5739
+    20   0.0576    0.0850   0.5733   0.5748   0.5797
+    24   0.0530    0.0870   0.5585   0.5498   0.5588
+  [fold 0] WA 0.5808  WF1 0.5842  UF1 0.5697  (best ep 21)
+
+  Fold 1  train=80 dev=40 convs
+    Ep   TrLoss   DevLoss   DevWF1   DevUF1    TeWF1
+     0   1.8729    1.6708   0.1116   0.0700   0.1080
+    10   0.0883    0.0849   0.5379   0.5179   0.4849
+    20   0.0590    0.0777   0.5901   0.5702   0.4760
+    24   0.0553    0.0866   0.5619   0.5436   0.4460
+  [fold 1] WA 0.5055  WF1 0.5091  UF1 0.4984  (best ep 16)
+
+  Fold 2  train=80 dev=40 convs
+    Ep   TrLoss   DevLoss   DevWF1   DevUF1    TeWF1
+     0   1.8016    1.7558   0.2130   0.1438   0.1450
+    10   0.0768    0.0880   0.4910   0.5029   0.4562
+    20   0.0569    0.0944   0.5080   0.4965   0.4479
+    24   0.0471    0.0810   0.5585   0.5524   0.4975
+  [fold 2] WA 0.5265  WF1 0.5242  UF1 0.5132  (best ep 23)
+
+=======================================================
+  3-fold CV  —  Session-5 test set
+=======================================================
+
+  Results saved → results/iemocap_20260526_171629/results.json
+
+  Metric     Mean      Std      Min      Max
+  --------------------------------------
+  WA       0.5376   0.0317   0.5055   0.5808
+  WF1      0.5392   0.0324   0.5091   0.5842
+  UF1      0.5271   0.0307   0.4984   0.5697
+
+  Per-class F1 (mean across folds):
+    hap           0.4033
+    sad           0.6567
+    neu           0.6442
+    ang           0.4439
+    exc           0.6510
+    fru           0.3635

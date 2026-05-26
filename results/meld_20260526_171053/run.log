@@ -1,0 +1,30 @@
+Run directory: results/meld_20260526_171053
+Building MELD speaker map from train split…
+  speakers: 113 (112 regular + 1 background)
+Loading MELD datasets…
+  train: 968  dev: 108  test: 268 convs
+  trainable parameters: 381,133
+
+  Ep   TrLoss   DevLoss   DevWF1   DevUF1    TeWF1
+--------------------------------------------------------
+   0   1.5834    1.5462   0.2513   0.0849   0.3126
+
+Best ep 0 | dev WF1 0.2513
+  [fold 0] WA 0.4811  WF1 0.3126  UF1 0.0928  (best ep 0)
+
+  Results saved → results/meld_20260526_171053/results.json
+
+  Metric     Mean      Std      Min      Max
+  --------------------------------------
+  WA       0.4811   0.0000   0.4811   0.4811
+  WF1      0.3126   0.0000   0.3126   0.3126
+  UF1      0.0928   0.0000   0.0928   0.0928
+
+  Per-class F1 (mean across folds):
+    neutral       0.6497
+    joy           0.0000
+    surprise      0.0000
+    anger         0.0000
+    sadness       0.0000
+    disgust       0.0000
+    fear          0.0000

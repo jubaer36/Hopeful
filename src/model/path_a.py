@@ -149,19 +149,23 @@ class PathA(nn.Module):
     """
     Path A: per-modality dynamic hypergraph followed by cross-modal gated attention.
     Three independent hypergraphs (one per modality) then 5-direction cross-modal mixing.
+    use_cross_modal=False skips cross-modal attention (ablation).
     """
 
-    def __init__(self, d: int, num_speakers: int):
+    def __init__(self, d: int, num_speakers: int, use_cross_modal: bool = True):
         super().__init__()
         self.hyper_T    = _HypergraphConv(d, num_speakers)
         self.hyper_A    = _HypergraphConv(d, num_speakers)
         self.hyper_V    = _HypergraphConv(d, num_speakers)
-        self.cross_attn = _CrossModalAttention(d)
+        self.use_cross_modal = use_cross_modal
+        if use_cross_modal:
+            self.cross_attn = _CrossModalAttention(d)
 
     def forward(self, T, A, V, speaker_ids):
         """T, A, V: (N, d); speaker_ids: (N,) → T', A', V' each (N, d)"""
         T = self.hyper_T(T, speaker_ids)
         A = self.hyper_A(A, speaker_ids)
         V = self.hyper_V(V, speaker_ids)
-        T, A, V = self.cross_attn(T, A, V)
+        if self.use_cross_modal:
+            T, A, V = self.cross_attn(T, A, V)
         return T, A, V

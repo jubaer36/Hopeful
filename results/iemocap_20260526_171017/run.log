@@ -1,0 +1,4 @@
+Run directory: results/iemocap_20260526_171017
+Loading IEMOCAP features…
+  trainval: 120 conversations  |  test (Session5): 31
+  trainable parameters: 377,463

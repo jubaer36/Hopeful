@@ -1,0 +1,9 @@
+config,WF1 Δ vs full
+full,+0.0000
+no_path_a,-0.3277
+no_path_b,+0.0092
+no_paths,-0.0307
+no_cross_modal,+0.0422
+no_speaker_emb,ERROR
+d=32,+0.0169
+d=128,+0.0421

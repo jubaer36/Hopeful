@@ -24,14 +24,23 @@ from .path_b  import PathB
 # ---------------------------------------------------------------------------
 
 class _SpeakerPositionInjector(nn.Module):
-    def __init__(self, num_speakers: int, d: int = 128, d_spk: int = 64, max_len: int = 300):
+    def __init__(
+        self,
+        num_speakers: int,
+        d: int = 64,
+        d_spk: int = 32,
+        max_len: int = 300,
+        use_speaker: bool = True,
+    ):
         super().__init__()
-        self.speaker_emb = nn.Embedding(num_speakers, d_spk)
-        self.proj_T = nn.Linear(d + d_spk, d)
-        self.proj_A = nn.Linear(d + d_spk, d)
-        self.proj_V = nn.Linear(d + d_spk, d)
+        self.use_speaker = use_speaker
 
-        # Fixed sinusoidal positional encoding — handles any conversation length
+        if use_speaker:
+            self.speaker_emb = nn.Embedding(num_speakers, d_spk)
+            self.proj_T = nn.Linear(d + d_spk, d)
+            self.proj_A = nn.Linear(d + d_spk, d)
+            self.proj_V = nn.Linear(d + d_spk, d)
+
         pe  = torch.zeros(max_len, d)
         pos = torch.arange(0, max_len).unsqueeze(1).float()
         div = torch.exp(torch.arange(0, d, 2).float() * (-math.log(10000.0) / d))
@@ -42,12 +51,17 @@ class _SpeakerPositionInjector(nn.Module):
     def forward(self, T, A, V, speaker_ids):
         """T, A, V: (N, d); speaker_ids: (N,) → T, A, V each (N, d)"""
         N   = T.size(0)
-        spk = self.speaker_emb(speaker_ids)    # (N, d_spk)
-        pos = self.pe[:N]                       # (N, d)
+        pos = self.pe[:N]
 
-        T = self.proj_T(torch.cat([T, spk], dim=-1)) + pos
-        A = self.proj_A(torch.cat([A, spk], dim=-1)) + pos
-        V = self.proj_V(torch.cat([V, spk], dim=-1)) + pos
+        if self.use_speaker:
+            spk = self.speaker_emb(speaker_ids)
+            T = self.proj_T(torch.cat([T, spk], dim=-1)) + pos
+            A = self.proj_A(torch.cat([A, spk], dim=-1)) + pos
+            V = self.proj_V(torch.cat([V, spk], dim=-1)) + pos
+        else:
+            T = T + pos
+            A = A + pos
+            V = V + pos
         return T, A, V
 
 
@@ -102,6 +116,8 @@ class MERC(nn.Module):
     def __init__(self, cfg, num_speakers: int):
         super().__init__()
         d = cfg.d
+        self._use_path_a = cfg.use_path_a
+        self._use_path_b = cfg.use_path_b
 
         # Stage 1
         self.text_enc   = TextEncoder(cfg.text_dim,    d)
@@ -109,14 +125,19 @@ class MERC(nn.Module):
         self.visual_enc = VisualEncoder(cfg.siglip2_dim, cfg.au_dim, d)
 
         # Stage 2
-        self.spk_pos = _SpeakerPositionInjector(num_speakers, d, cfg.d_spk)
+        self.spk_pos = _SpeakerPositionInjector(
+            num_speakers, d, cfg.d_spk, use_speaker=cfg.use_speaker_emb
+        )
 
         # Stage 3
-        self.path_a = PathA(d, num_speakers)
-        self.path_b = PathB(d, cfg.window_size, cfg.k_poly, cfg.k_freq)
+        if cfg.use_path_a:
+            self.path_a = PathA(d, num_speakers, use_cross_modal=cfg.use_cross_modal_attn)
+        if cfg.use_path_b:
+            self.path_b = PathB(d, cfg.window_size, cfg.k_poly, cfg.k_freq)
 
-        # Stage 4
-        self.path_fusion = _PathFusion(d)
+        # Stage 4 — only needed when both paths active
+        if cfg.use_path_a and cfg.use_path_b:
+            self.path_fusion = _PathFusion(d)
 
         # Stage 5
         self.utt_fusion = _ModalityFusionMLP(d, cfg.dropout)
@@ -142,12 +163,17 @@ class MERC(nn.Module):
         # Stage 2
         T, A, V = self.spk_pos(T, A, V, speaker_ids)
 
-        # Stage 3 — two parallel paths
-        hA_T, hA_A, hA_V = self.path_a(T, A, V, speaker_ids)
-        hB_T, hB_A, hB_V = self.path_b(T, A, V)
-
-        # Stage 4
-        fT, fA, fV = self.path_fusion(hA_T, hB_T, hA_A, hB_A, hA_V, hB_V)
+        # Stage 3 — conditional path routing
+        if self._use_path_a and self._use_path_b:
+            hA_T, hA_A, hA_V = self.path_a(T, A, V, speaker_ids)
+            hB_T, hB_A, hB_V = self.path_b(T, A, V)
+            fT, fA, fV = self.path_fusion(hA_T, hB_T, hA_A, hB_A, hA_V, hB_V)
+        elif self._use_path_a:
+            fT, fA, fV = self.path_a(T, A, V, speaker_ids)
+        elif self._use_path_b:
+            fT, fA, fV = self.path_b(T, A, V)
+        else:
+            fT, fA, fV = T, A, V
 
         # Stage 5
         u = self.utt_fusion(fT, fA, fV)

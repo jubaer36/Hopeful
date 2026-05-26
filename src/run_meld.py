@@ -127,7 +127,7 @@ def main(cfg: MERCConfig = None):
     plot_meld_curves(history, best_epoch, save_dir=plot_dir)
     plot_meld_summary(te_final, _MELD_EMOTIONS, save_dir=plot_dir)
     logger.close()
-    return best_wf1
+    return {"te_final": te_final, "best_wf1": best_wf1, "run_dir": logger.run_dir}
 
 
 if __name__ == "__main__":
